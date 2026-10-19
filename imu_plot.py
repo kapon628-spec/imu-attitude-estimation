@@ -137,7 +137,8 @@ for ax, title in ((ax_roll, "roll (°)"), (ax_pitch, "pitch (°)")):
 ax_pitch.set_xlabel("样本序号")
 
 info = ax_acc.text(0.01, 0.97, "", transform=ax_acc.transAxes,
-                   fontsize=9, va="top", family="monospace")
+                   fontsize=9, va="top")
+# 注意：不要加 family="monospace"，等宽字体没有中文字形，会变成方块
 
 ALL_LN = ln_acc + ln_gyr + ln_roll + ln_pitch
 
