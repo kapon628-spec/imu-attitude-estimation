@@ -8,7 +8,7 @@
     - gx10/gy10/gz10  : 陀螺仪 0.1°/s（已减零偏）
     - ar10/ap10       : 加速度计解算的 roll/pitch，0.1°
     - gr10/gp10       : 纯陀螺积分的 roll/pitch，0.1°
-    - fr10/fp10       : 互补滤波融合后的 roll/pitch，0.1°
+    - mr10/mp10       : Mahony 四元数滤波后的 roll/pitch，0.1°
 """
 
 import sys
@@ -29,14 +29,14 @@ PORT = "COM5"        # ← 改成你的 CH340 端口号
 BAUD = 115200
 WINDOW = 300         # 显示最近 300 点（50Hz 下约 6 秒）
 
-N_CH = 12            # 3 加速度 + 3 陀螺 + 2 加速度角 + 2 陀螺角 + 2 融合角
+N_CH = 12            # 3 加速度 + 3 陀螺 + 2 加速度角 + 2 陀螺角 + 2 Mahony 角
 
 # 通道索引
 I_AX, I_AY, I_AZ = 0, 1, 2
 I_GX, I_GY, I_GZ = 3, 4, 5
 I_AR, I_AP = 6, 7
 I_GR, I_GP = 8, 9
-I_FR, I_FP = 10, 11
+I_MR, I_MP = 10, 11
 
 # ==================== 数据缓冲 ====================
 ch = [deque(maxlen=WINDOW) for _ in range(N_CH)]
@@ -85,8 +85,8 @@ def reader():
         ch[I_AP].append(vals[8] / 10.0)
         ch[I_GR].append(vals[9] / 10.0)
         ch[I_GP].append(vals[10] / 10.0)
-        ch[I_FR].append(vals[11] / 10.0)
-        ch[I_FP].append(vals[12] / 10.0)
+        ch[I_MR].append(vals[11] / 10.0)
+        ch[I_MP].append(vals[12] / 10.0)
         total_count += 1
 
 
@@ -109,12 +109,12 @@ LN_ACC_A, LN_GYR_ANG, LN_FUS = "#9ecae1", "#fd8d3c", "#d62728"
 ln_roll = [
     ax_roll.plot([], [], color=LN_ACC_A, lw=1.0, label="加速度计")[0],
     ax_roll.plot([], [], color=LN_GYR_ANG, lw=1.0, ls="--", label="纯陀螺积分")[0],
-    ax_roll.plot([], [], color=LN_FUS, lw=1.8, label="融合")[0],
+    ax_roll.plot([], [], color=LN_FUS, lw=1.8, label="Mahony")[0],
 ]
 ln_pitch = [
     ax_pitch.plot([], [], color=LN_ACC_A, lw=1.0, label="加速度计")[0],
     ax_pitch.plot([], [], color=LN_GYR_ANG, lw=1.0, ls="--", label="纯陀螺积分")[0],
-    ax_pitch.plot([], [], color=LN_FUS, lw=1.8, label="融合")[0],
+    ax_pitch.plot([], [], color=LN_FUS, lw=1.8, label="Mahony")[0],
 ]
 
 ax_acc.set_ylabel("加速度 (LSB)")
@@ -129,7 +129,7 @@ ax_gyr.grid(True, alpha=0.3)
 
 for ax, title in ((ax_roll, "roll (°)"), (ax_pitch, "pitch (°)")):
     ax.set_ylabel(title)
-    ax.set_ylim(-270, 270)
+    ax.set_ylim(-190, 190)
     ax.axhline(0, color="gray", lw=0.8, ls=":", alpha=0.6)
     ax.legend(loc="upper right", ncol=3, fontsize=9)
     ax.grid(True, alpha=0.3)
@@ -154,22 +154,33 @@ def update(_frame):
         ln_acc[i].set_data(x, list(ch[I_AX + i]))
         ln_gyr[i].set_data(x, list(ch[I_GX + i]))
 
-    # roll / pitch：加速度计、纯陀螺、融合 三条对比
-    ln_roll[0].set_data(x, list(ch[I_AR]))
-    ln_roll[1].set_data(x, list(ch[I_GR]))
-    ln_roll[2].set_data(x, list(ch[I_FR]))
+    # roll / pitch：加速度计、纯陀螺、Mahony 三条对比
+    # roll 在 ±180 会数字环绕（不是算错，是 atan2 值域边界），
+    # 三条曲线统一做相位解缠，并以加速度计的中间值为公共基准对齐。
+    acc_r = np.array(ch[I_AR], dtype=float)
+    acc_u = np.degrees(np.unwrap(np.radians(acc_r)))
+    ref = float(np.median(acc_u))
+
+    def _align(seq):
+        u = np.degrees(np.unwrap(np.radians(np.array(seq, dtype=float))))
+        k = round((ref - float(np.median(u))) / 360.0)
+        return u + 360.0 * k
+
+    ln_roll[0].set_data(x, acc_u)
+    ln_roll[1].set_data(x, _align(ch[I_GR]))
+    ln_roll[2].set_data(x, _align(ch[I_MR]))
 
     ln_pitch[0].set_data(x, list(ch[I_AP]))
     ln_pitch[1].set_data(x, list(ch[I_GP]))
-    ln_pitch[2].set_data(x, list(ch[I_FP]))
+    ln_pitch[2].set_data(x, list(ch[I_MP]))
 
     for ax in (ax_acc, ax_gyr, ax_roll, ax_pitch):
         ax.set_xlim(0, WINDOW)
 
     info.set_text(
         f"buffer={n}/{WINDOW}  total={total_count}  dt={dt_hist[-1]}us\n"
-        f"roll:  融合={ch[I_FR][-1]:7.2f}  陀螺={ch[I_GR][-1]:7.2f}  acc={ch[I_AR][-1]:7.2f}\n"
-        f"pitch: 融合={ch[I_FP][-1]:7.2f}  陀螺={ch[I_GP][-1]:7.2f}  acc={ch[I_AP][-1]:7.2f}")
+        f"roll:  Mahony={ch[I_MR][-1]:7.2f}  陀螺={ch[I_GR][-1]:7.2f}  acc={ch[I_AR][-1]:7.2f}\n"
+        f"pitch: Mahony={ch[I_MP][-1]:7.2f}  陀螺={ch[I_GP][-1]:7.2f}  acc={ch[I_AP][-1]:7.2f}")
 
     return ALL_LN + [info]
 
