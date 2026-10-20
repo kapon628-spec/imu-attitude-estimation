@@ -30,7 +30,10 @@ MPU6050 ──I2C──> STM32F411CEU6 ──UART──> CH340 ──> PC
 | `imu_3d.py` | 3D 姿态可视化（单独窗口） |
 | `imu_plot.py` | 实时波形显示（pyserial + matplotlib） |
 | `imu_log.py` | 采集并统计噪声基线，输出 CSV |
+| `analyze_perf.py` | **性能评估**：时序质量、漂移率、噪声、延迟构成 |
+| `compare_euler_quat.py` | Euler vs 四元数 量化对比实验 |
 | [`DEVLOG.md`](DEVLOG.md) | **开发日志**：逐日记录目标、踩坑与关键数据 |
+| [`docs/MIDTERM_REPORT.md`](docs/MIDTERM_REPORT.md) | **中期总结报告**（Day 1–14） |
 
 ## 数据协议
 
@@ -240,7 +243,8 @@ Bias mdps = -3802, -2391, -1258
 - [x] **Day 10**：互补滤波融合（噪声降低 4 倍，暴露 Euler 死锁与陀螺饱和）
 - [x] **Day 11**：Mahony 四元数滤波（漂移 21×↓、噪声 2.6×↓，通过 ±90° 无死锁验证）
 - [x] **Day 12**：3D 姿态可视化 + 综合面板（渲染从 3.4 Hz 优化到 30 Hz）
-- [ ] **Day 13–14**：性能评估（延迟、帧率、长时间稳定性）、中期总结
+- [x] **Day 13**：性能评估（200.00 Hz 零丢帧、漂移率量化、延迟 ≈70 ms）
+- [x] **Day 14**：中期总结报告 [docs/MIDTERM_REPORT.md](docs/MIDTERM_REPORT.md)
 - [ ] **Day 15–21**：磁力计接入、椭圆校准、定量分析
 - [ ] **Day 22–28**：RMSE 统计、报告、演示视频
 
