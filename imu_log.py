@@ -29,7 +29,7 @@ while time.time() - t0 < DURATION:
     if not line.startswith("D,"):
         continue
     parts = line.split(",")
-    if len(parts) != 14:          # D + dt + 3加速度 + 3陀螺 + 2+2+2 角度
+    if len(parts) != 18:          # D + dt + 3加速度 + 3陀螺 + 2+2+2 角度 + 4 四元数
         continue
     try:
         rows.append([int(x) for x in parts[1:]])

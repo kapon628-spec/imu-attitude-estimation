@@ -68,7 +68,7 @@ def reader():
         if not line.startswith("D,"):
             continue
         parts = line.split(",")
-        if len(parts) != 14:          # D + dt + 3 + 3 + 2 + 2 + 2
+        if len(parts) != 18:          # D + dt + 3 + 3 + 2 + 2 + 2 + 4(四元数)
             continue
         try:
             vals = [int(x) for x in parts[1:]]
